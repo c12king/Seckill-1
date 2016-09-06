@@ -1,0 +1,67 @@
+spring:
+    datasource:
+        name: test
+        url: jdbc:mysql://192.168.3.6:3306/seckill
+        username: root
+        password: 123456
+        # 使用druid数据源
+        type: com.alibaba.druid.pool.DruidDataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        filters: stat
+        maxActive: 100
+        initialSize: 10
+        maxWait: 60000
+        minIdle: 2
+        timeBetweenEvictionRunsMillis: 60000
+        minEvictableIdleTimeMillis: 300000
+        validationQuery: select 1
+        testWhileIdle: true
+        testOnBorrow: false
+        testOnReturn: false
+        poolPreparedStatements: true
+        maxOpenPreparedStatements: 20
+
+    redis:
+        host: 192.168.3.6
+        port: 6379
+        timeout: 500000
+        pool:
+            minIdle: 300
+            maxIdle: 300
+            maxTotal: 300
+            LIFO: true
+            # 检测空闲连接间隔时间
+            betweenEvictSecond: 1
+            # 检测空闲连接个数
+            perEvictRun: 30
+            # 空闲超过时间，则有资格被驱逐，默认30分钟
+#            minEvictableIdleMinutes: 5
+
+    rabbitmq:
+        host: 192.168.3.6
+        username: seckill
+        password: 123456
+        port: 5672
+        vhost: seckill
+        #CacheMode: channel
+        #The currently configured maximum channels that are allowed to be idle.
+        #When the cache mode is 'CHANNEL', the connection cache size cannot be configured
+        #channelCacheSize: 2
+        #seckill
+        seckill:
+            exchange:
+                name: seckill_order
+                type: direct
+                durable: true
+                autoDelete: false
+                #Binding
+                routingKey: seckill.order
+                queue:
+                    name: seckill_order
+                    durable: true
+                    ##队列只对本用户可见
+                    exclusive: false
+                    autoDelete: false
+                consumer:
+                    maxConcurrentConsumers: 10
+                    concurrentConsumers: 1

@@ -1,0 +1,12 @@
+##rabbitmq 用户配置
+##参考链接：http://my.oschina.net/hncscwc/blog/262246?p=
+sudo rabbitmqctl add_user seckill 123456
+sudo rabbitmqctl add_vhost seckill
+sudo rabbitmqctl set_permissions -p seckill seckill ".*" ".*" ".*"
+
+##监控所有信息
+sudo rabbitmqctl add_user monitor 123456
+sudo rabbitmqctl set_user_tags monitor monitoring
+##超级管理员
+sudo rabbitmqctl add_user root 123456
+sudo rabbitmqctl set_user_tags root administrator
