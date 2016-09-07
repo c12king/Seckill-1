@@ -1,3 +1,5 @@
+# TODO 开发与正式环境分隔、业务分隔
+
 spring:
     datasource:
         name: test
@@ -43,25 +45,48 @@ spring:
         password: 123456
         port: 5672
         vhost: seckill
-        #CacheMode: channel
-        #The currently configured maximum channels that are allowed to be idle.
-        #When the cache mode is 'CHANNEL', the connection cache size cannot be configured
-        #channelCacheSize: 2
-        #seckill
-        seckill:
-            exchange:
-                name: seckill_order
-                type: direct
-                durable: true
-                autoDelete: false
-                #Binding
-                routingKey: seckill.order
-                queue:
-                    name: seckill_order
-                    durable: true
-                    ##队列只对本用户可见
-                    exclusive: false
-                    autoDelete: false
-                consumer:
-                    maxConcurrentConsumers: 10
-                    concurrentConsumers: 1
+        mandatory: true
+        replyTimeout: 5000
+        retry:
+            maxAttempts: 3
+            backOff:
+                initialInterval: 100
+                multiplier: 2
+                maxInterval: 30000
+
+        seckillExchange:
+            name: seckill_order
+#            type: direct
+#            durable: true
+#            autoDelete: false
+            #Binding
+#            routingKey: seckill.order
+        seckillQueue:
+            name: seckill_order
+#            durable: true
+            ##队列只对本用户可见
+#            exclusive: false
+#            autoDelete: false
+            bindingKey: seckill.successSeckill
+        seckillConsumer:
+            maxConcurrentConsumers: 10
+            concurrentConsumers: 1
+            recoveryBackOff:
+                initialInterval: 2000
+                multiplier: 2.0
+                maxInterval: 30000
+
+        deadExchange:
+            name: dead_exchange
+            type: topic
+            durable: true
+            autoDelete: false
+            routingKey: dead.#
+        seckillDeadQueue:
+            name: dead_queue
+            durable: true
+            autoDelete: false
+#        commonDeadQueue:
+#            name: common_dead_queue
+#            durable: false
+#            autoDelete: true

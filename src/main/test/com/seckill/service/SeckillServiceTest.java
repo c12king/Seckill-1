@@ -1,9 +1,11 @@
 package com.seckill.service;
 
 import com.seckill.ApplicationMain;
+import com.seckill.constants.WebConstants;
 import com.seckill.dto.Exposer;
 import com.seckill.entity.PayInfo;
 import com.seckill.entity.Seckill;
+import com.seckill.entity.SuccessKilled;
 import com.seckill.exception.SeckillCloseException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,14 +49,13 @@ public class SeckillServiceTest {
 
     private long seckillId = 1003;
 
-    private long userPhone = 12111111111L;
+    private long userPhone = 12211111111L;
 
     private String md5;
 
     @Resource(name = "redisTemplate")
     private ValueOperations<String, Seckill> seckillOper;
 
-    private static final String SECKILL_PREFIX = "seckill_";
 
     @Test
     public void queryTest() {
@@ -64,7 +65,7 @@ public class SeckillServiceTest {
     @Test
     public void exposeTest() throws InterruptedException {
         //先存入一个值
-        seckillOper.set(SECKILL_PREFIX + seckillId, seckillService.queryById(seckillId));
+        seckillOper.set(WebConstants.getSeckillRedisKey(seckillId), seckillService.queryById(seckillId));
         for (int i = 0; i < threadNums; i++) {
             new ExposeThread().start();
         }
@@ -78,7 +79,7 @@ public class SeckillServiceTest {
         Exposer exposer = seckillService.exportSeckillUrl(seckillId);
         md5 = exposer.getMd5();
 
-        String stocks = seckillId + "_stocks";
+        String stocks = WebConstants.getSeckillStockRedisKey(seckillId);
         //先设置库存量
         seckillOper.getOperations().delete(stocks);
         seckillOper.increment(stocks,30);
@@ -99,16 +100,21 @@ public class SeckillServiceTest {
 
     @Test
     public void parsePayInfoTest() throws InterruptedException {
+
         //先存入一个值
-        seckillOper.getOperations().delete(SECKILL_PREFIX + seckillId);
-        seckillOper.set(SECKILL_PREFIX + seckillId, seckillService.queryById(seckillId));
+        String seckillKey = WebConstants.getSeckillRedisKey(seckillId);
+        seckillOper.getOperations().delete(seckillKey);
+        seckillOper.set(seckillKey, seckillService.queryById(seckillId));
+
+//        Thread.sleep(10000);
+
         Exposer exposer = seckillService.exportSeckillUrl(seckillId);
         md5 = exposer.getMd5();
 
-        String stocks = seckillId + "_stocks";
+        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
         //先设置库存量
-        seckillOper.getOperations().delete(stocks);
-        seckillOper.increment(stocks, 30);
+        seckillOper.getOperations().delete(stockKey);
+        seckillOper.increment(stockKey, 30);
 
         for (int i = 0; i < threadNums; i++) {
             new PayThread().start();
@@ -127,16 +133,14 @@ public class SeckillServiceTest {
 
         System.out.println("excutTime + payTime:Count : " + format.format(successTotalCount.get()) + "ms");
         System.out.println("excutTime + payTime:Avg : " + format.format(successTotalCount.get() / threadNums) + "ms");
+
+//        Thread.sleep(10000);
     }
 
     @Test
     public void executeSeckillProcTest() {
-        Map<String, Object> paramMap = new HashMap<String, Object>();
-        paramMap.put("seckillId", 1003L);
-        paramMap.put("userPhone", 12345678903L);
-        paramMap.put("killTime", new Date());
-        paramMap.put("payStat",2);
-        seckillService.executeSeckillProc(paramMap);
+        SuccessKilled successKilled = new SuccessKilled(seckillId, userPhone, (short)2);
+        seckillService.executeSeckillProc(successKilled);
     }
 
     class ExposeThread extends Thread {

@@ -1,5 +1,6 @@
 package com.seckill.service.impl;
 
+import com.seckill.constants.WebConstants;
 import com.seckill.dao.SeckillDao;
 import com.seckill.dto.Exposer;
 import com.seckill.dto.SeckillExcution;
@@ -14,15 +15,17 @@ import com.seckill.service.SeckillService;
 import org.apache.commons.collections.MapUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpException;
+import org.springframework.amqp.AmqpIOException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
-import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -34,9 +37,6 @@ import java.util.concurrent.TimeUnit;
 public class SeckillServiceImpl implements SeckillService {
 
     private final static Logger LOG = LoggerFactory.getLogger(SeckillServiceImpl.class);
-
-    //用于MD5混淆
-    private final String slat = "asdjoij%F∞§¶••ªªªºº–––asdasf!!!~~d";
 
     @Autowired
     private SeckillDao seckillDao;
@@ -50,21 +50,19 @@ public class SeckillServiceImpl implements SeckillService {
     @Resource(name = "redisTemplate")
     private ValueOperations<String, SuccessKilled> successKilledOper;
 
-    @Value("${spring.rabbitmq.seckill.exchange.name}")
+    @Value("${spring.rabbitmq.seckillExchange.name}")
     private String skExName;
-    @Value("${spring.rabbitmq.seckill.exchange.routingKey}")
+    @Value("${spring.rabbitmq.seckillQueue.bindingKey}")
     private String skRoutKey;
 
     public Seckill queryById(long seckillId) {
         return seckillDao.queryById(seckillId);
     }
 
-    private static final String STOCK_SUFFIX = "_stocks";
-    private static final String SECKILL_PREFIX = "seckill_";
-    private static final String SUCCESS_SECKILL_PREFIX = "successkilled_";
+
 
     public Exposer exportSeckillUrl(long seckillId) {
-        Seckill seckill = seckillOper.get(SECKILL_PREFIX + seckillId);
+        Seckill seckill = seckillOper.get(WebConstants.getSeckillRedisKey(seckillId));
 
         long startTime = seckill.getStartTime().getTime();
         long endTime = seckill.getEndTime().getTime();
@@ -72,7 +70,7 @@ public class SeckillServiceImpl implements SeckillService {
         if (nowTime < startTime || nowTime > endTime) {
             return new Exposer(false, seckillId, nowTime, startTime, endTime);
         }
-        String md5 = getMD5(seckillId);
+        String md5 = WebConstants.getMD5(seckillId);
         return new Exposer(true, md5, seckillId);
     }
 
@@ -90,17 +88,17 @@ public class SeckillServiceImpl implements SeckillService {
      * @throws SeckillCloseException
      */
     public SeckillExcution executeSeckill(final long seckillId, final long userPhone, String md5) throws SeckillException, SeckillCloseException {
-        if (md5 == null || !md5.equals(getMD5(seckillId))) {
+        if (md5 == null || !md5.equals(WebConstants.getMD5(seckillId))) {
             throw new SeckillException("seckill data rewrite");
         }
-        String stockKey = seckillId + STOCK_SUFFIX;
+        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
         long result = seckillOper.increment(stockKey, -1);
         if (result < 0) {
             //秒杀结束：无库存或秒杀结束等
             throw new SeckillCloseException("seckill is closed");
         } else {
             SuccessKilled successKilled = new SuccessKilled(seckillId, userPhone, SeckillStatEnum.APPLY.getState());
-            String successKey = SUCCESS_SECKILL_PREFIX + seckillId + userPhone;
+            String successKey = WebConstants.getSuccessSeckillRedisKey(seckillId, userPhone);
             //缓存秒杀成功订单信息
             successKilledOper.set(successKey, successKilled, 30, TimeUnit.MINUTES);
             return new SeckillExcution(seckillId, SeckillStatEnum.APPLY);
@@ -117,40 +115,48 @@ public class SeckillServiceImpl implements SeckillService {
     public SeckillExcution parsePayInfo(PayInfo payInfo, long seckillId, long userPhone) {
         //支付成功
         if ("TRADE_SUCCESS".equals(payInfo.getTradeStatus())) {
-            String key = SUCCESS_SECKILL_PREFIX + seckillId + userPhone;
+            String key = WebConstants.getSuccessSeckillRedisKey(seckillId, userPhone);
             SuccessKilled successKilled = successKilledOper.get(key);
             successKilled.setState(SeckillStatEnum.SUCCESS.getState());
             //更新订单支付状态
             successKilledOper.set(key, successKilled);
             //MQ发送消息
-            rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
+            try {
+                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
+            } catch (AmqpIOException aioe) {
+                LOG.error(aioe.getMessage(),aioe);
+                // TODO 发送失败处理措施
+            } catch (AmqpException ae) {
+                LOG.error(ae.getMessage(), ae);
+                // TODO 发送失败处理措施
+            }
 
             return new SeckillExcution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
         }
         throw new SeckillCloseException("pay error");
     }
 
-    public boolean executeSeckillProc(Map<String, Object> paramMap) {
+    public boolean executeSeckillProc(SuccessKilled successKilled) {
+
+        Map<String, Object> paramMap = new HashMap<String, Object>();
+        paramMap.put("seckillId", successKilled.getSeckillId());
+        paramMap.put("userPhone", successKilled.getUserPhone());
+        paramMap.put("killTime", successKilled.getCreateTime());
+        paramMap.put("payStat", successKilled.getState());
+        paramMap.put("result", null);
 
         seckillDao.killByProcedure(paramMap);
+
         int result = MapUtils.getInteger(paramMap, "result", -10);
-        System.out.println("result: " + result);
+
+        LOG.debug("执行存储过程完成,code: " + result);
+
         if (result == 2) {
             return true;
         }
-        return false;
+        throw new SeckillException("执行存储过程异常code: " + result);
     }
 
-    /**
-     * 单纯的seckillId有可能破解
-     *
-     * @param seckillId
-     * @return
-     */
-    private String getMD5(long seckillId) {
-        String base = seckillId + "/" + slat;
-        String md5 = DigestUtils.md5DigestAsHex(base.getBytes());
-        return md5;
-    }
+
 
 }

@@ -4,6 +4,7 @@ import com.seckill.dto.Exposer;
 import com.seckill.dto.SeckillExcution;
 import com.seckill.entity.PayInfo;
 import com.seckill.entity.Seckill;
+import com.seckill.entity.SuccessKilled;
 import com.seckill.exception.SeckillCloseException;
 import com.seckill.exception.SeckillException;
 
@@ -52,5 +53,5 @@ public interface SeckillService {
      */
     SeckillExcution parsePayInfo(PayInfo payInfo, long seckillId, long userPhone);
 
-    boolean executeSeckillProc(Map<String,Object> paramMap);
+    boolean executeSeckillProc(SuccessKilled successKilled);
 }

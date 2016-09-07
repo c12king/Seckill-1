@@ -1,4 +1,4 @@
-package util;
+package com.seckill.util;
 
 import java.io.File;
 import java.io.FileWriter;
