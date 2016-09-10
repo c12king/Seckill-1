@@ -52,7 +52,7 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Value("${spring.rabbitmq.seckillExchange.name}")
     private String skExName;
-    @Value("${spring.rabbitmq.seckillQueue.bindingKey}")
+    @Value("${spring.rabbitmq.seckillBindingKey}")
     private String skRoutKey;
 
     public Seckill queryById(long seckillId) {
@@ -122,7 +122,7 @@ public class SeckillServiceImpl implements SeckillService {
             successKilledOper.set(key, successKilled);
             //MQ发送消息
             try {
-                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
+                rabbitTemplate.convertAndSend(skExName, skRoutKey+2123, successKilled);
             } catch (AmqpIOException aioe) {
                 LOG.error(aioe.getMessage(),aioe);
                 // TODO 发送失败处理措施

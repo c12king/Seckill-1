@@ -10,6 +10,7 @@ import com.seckill.exception.SeckillException;
 import com.seckill.service.SeckillService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.ChannelAwareMessageListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ValueOperations;
 
 import javax.annotation.Resource;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,31 +39,33 @@ public class SeckillReceiver implements ChannelAwareMessageListener {
     @Resource(name = "redisTemplate")
     private ValueOperations<String, Seckill> seckillOper;
 
-    public void onMessage(Message message, Channel channel) throws Exception {
+    public void onMessage(Message message, Channel channel) {
         LOG.info("[x] receive message: " + JSON.toJSONString(message, SerializerFeature.WriteMapNullValue));
 
-//        try {
-        SuccessKilled successKilled = (SuccessKilled) rabbitTemplate
-                .getMessageConverter().fromMessage(message);
-
-        //落地
-        seckillService.executeSeckillProc(successKilled);
-
-        long seckillId = successKilled.getSeckillId();
-        long userPhone = successKilled.getUserPhone();
-
-        //redis删除缓存
-        seckillOper.getOperations().delete(WebConstants.getSuccessSeckillRedisKey(seckillId, userPhone));
-
+        SuccessKilled successKilled = (SuccessKilled) rabbitTemplate.getMessageConverter().fromMessage(message);
+        boolean hasException = false;
         //ack
-        channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
-
-//        } catch (SeckillException e) {
-//            LOG.warn(e.getMessage(), e);
-//            throw e;
-//        } catch (Exception e) {
-//            LOG.warn(e.getMessage(), e);
-//            throw e;
-//        }
+        try {
+            //落地
+            seckillService.executeSeckillProc(successKilled);
+            //redis删除缓存
+            long seckillId = successKilled.getSeckillId();
+            long userPhone = successKilled.getUserPhone();
+            seckillOper.getOperations().delete(WebConstants.getSuccessSeckillRedisKey(seckillId, userPhone));
+        } catch (Exception e) {
+            LOG.error(e.getMessage(), e);
+            hasException = true;
+//            throw new AmqpRejectAndDontRequeueException("to dead-letter");
+        } finally {
+            try {
+                if (hasException) {
+                    channel.basicNack(message.getMessageProperties().getDeliveryTag(), false, false);
+                } else {
+                    channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+                }
+            } catch (IOException e1) {
+                LOG.error(e1.getMessage(), e1);
+            }
+        }
     }
 }

@@ -134,7 +134,7 @@ public class SeckillServiceTest {
         System.out.println("excutTime + payTime:Count : " + format.format(successTotalCount.get()) + "ms");
         System.out.println("excutTime + payTime:Avg : " + format.format(successTotalCount.get() / threadNums) + "ms");
 
-//        Thread.sleep(10000);
+        Thread.sleep(1000 * 10);
     }
 
     @Test

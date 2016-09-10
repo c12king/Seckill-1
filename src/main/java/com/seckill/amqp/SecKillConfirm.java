@@ -15,7 +15,7 @@ public class SecKillConfirm implements RabbitTemplate.ConfirmCallback {
 
     public void confirm(CorrelationData correlationData, boolean ack, String cause) {
         if (!ack) {
-            LOG.warn("NACK received, case: {}" + (cause == null ? "null" : cause));
+            LOG.warn("NACK received, case: {}",cause);
         }
     }
 }

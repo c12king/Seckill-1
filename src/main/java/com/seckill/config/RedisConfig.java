@@ -62,7 +62,7 @@ public class RedisConfig {
         RedisTemplate template = new RedisTemplate();
         template.setConnectionFactory(jedisConnectionFactory);
 
-        //TODO 序列化类没带泛型，报unchecked警告， 不了解在什么情况下会出现问题
+        //TODO 序列化类没带泛型，报unchecked警告
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(new ProtostufRedisSerializer());
         return template;

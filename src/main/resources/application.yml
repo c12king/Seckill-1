@@ -55,19 +55,20 @@ spring:
                 maxInterval: 30000
 
         seckillExchange:
-            name: seckill_order
+            name: order_seckill
 #            type: direct
 #            durable: true
 #            autoDelete: false
             #Binding
 #            routingKey: seckill.order
         seckillQueue:
-            name: seckill_order
+            name: order_seckill
 #            durable: true
             ##队列只对本用户可见
 #            exclusive: false
 #            autoDelete: false
-            bindingKey: seckill.successSeckill
+        seckillBindingKey: order.successSeckill
+
         seckillConsumer:
             maxConcurrentConsumers: 10
             concurrentConsumers: 1
@@ -77,15 +78,16 @@ spring:
                 maxInterval: 30000
 
         deadExchange:
-            name: dead_exchange
-            type: topic
-            durable: true
-            autoDelete: false
-            routingKey: dead.#
+            name: dead_exchange_seckill
+#            type: topic
+#            durable: true
+#            autoDelete: false
+#            routingKey: dead.#
         seckillDeadQueue:
-            name: dead_queue
-            durable: true
-            autoDelete: false
+            name: dead_queue_seckill
+#            durable: true
+#            autoDelete: false
+        deadBindingKey: dead.successSeckill
 #        commonDeadQueue:
 #            name: common_dead_queue
 #            durable: false
