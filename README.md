@@ -11,7 +11,7 @@ seckill是高并发下的秒杀功能的后台实现。其特点是在高并发�
 为了解决高并发下出现的上述两个问题，需要将mysql的操作异步化。seckill采用基于缓存 + 消息队列方式实现。
 
 
-### 秒杀时序图
+### 秒杀时序图(未成功加载见doc/seckill.png)
 ![seckill process diagram](doc/seckill.png)
 
 ## Seckill的性能优化
