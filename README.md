@@ -12,7 +12,7 @@ seckill是高并发下的秒杀功能的后台实现。其特点是在高并发�
 
 
 ### 秒杀时序图
-![seckill process diagram](https://www.processon.com/chart_image/57c962c7e4b08ba6cdc5c0e0.png)
+![seckill process diagram](doc/seckill.png)
 
 ## Seckill的性能优化
 ### 连接池(db、rabbitmq、redis)
