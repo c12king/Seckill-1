@@ -40,9 +40,10 @@ public class SeckillReceiver implements ChannelAwareMessageListener {
     private ValueOperations<String, Seckill> seckillOper;
 
     public void onMessage(Message message, Channel channel) {
-        LOG.info("[x] receive message: " + JSON.toJSONString(message, SerializerFeature.WriteMapNullValue));
-
         SuccessKilled successKilled = (SuccessKilled) rabbitTemplate.getMessageConverter().fromMessage(message);
+
+        LOG.info("[x] receive SuccessKilled: " + JSON.toJSONString(successKilled, SerializerFeature.WriteMapNullValue));
+
         boolean hasException = false;
         //ack
         try {

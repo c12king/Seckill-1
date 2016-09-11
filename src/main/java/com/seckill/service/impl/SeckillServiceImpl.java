@@ -122,7 +122,7 @@ public class SeckillServiceImpl implements SeckillService {
             successKilledOper.set(key, successKilled);
             //MQ发送消息
             try {
-                rabbitTemplate.convertAndSend(skExName, skRoutKey+2123, successKilled);
+                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
             } catch (AmqpIOException aioe) {
                 LOG.error(aioe.getMessage(),aioe);
                 // TODO 发送失败处理措施

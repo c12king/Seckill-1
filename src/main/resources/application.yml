@@ -28,12 +28,12 @@ spring:
         port: 6379
         timeout: 500000
         pool:
-            minIdle: 300
-            maxIdle: 300
+            minIdle: 20
+            maxIdle: 100
             maxTotal: 300
             LIFO: true
             # 检测空闲连接间隔时间
-            betweenEvictSecond: 1
+            betweenEvictSecond: 1000
             # 检测空闲连接个数
             perEvictRun: 30
             # 空闲超过时间，则有资格被驱逐，默认30分钟

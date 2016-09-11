@@ -79,5 +79,6 @@
 
     <logger name="org.springframework.web" level="INFO">
         <appender-ref ref="INFO"/>
+        <appender-ref ref="ERROR"/>
     </logger>
 </configuration>

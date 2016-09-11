@@ -12,11 +12,11 @@ CREATE TABLE seckill (
   COMMENT '商品名称',
   number      INT          NOT NULL
   COMMENT '库存数量',
-  start_time  TIMESTAMP    NOT NULL
+  start_time  TIMESTAMP    NOT NULL DEFAULT '0000-00-00 00:00:00'
   COMMENT '秒杀开启时间',
-  end_time    TIMESTAMP    NOT NULL
+  end_time    TIMESTAMP    NOT NULL DEFAULT '0000-00-00 00:00:00'
   COMMENT '秒杀结束时间',
-  create_time TIMESTAMP    NOT NULL
+  create_time TIMESTAMP    NOT NULL DEFAULT '0000-00-00 00:00:00'
   COMMENT '创建时间',
   PRIMARY KEY (seckill_id),
   KEY idx_start_time(start_time),
@@ -74,8 +74,8 @@ CREATE PROCEDURE `execute_seckill`(IN v_seckill_id bigint, IN v_phone bigint,
     ELSE
       update seckill set number = number -1
       where seckill_id = v_seckill_id
-            and end_time > v_kill_time
-            and start_time < v_kill_time
+            and end_time >= v_kill_time
+            and start_time <= v_kill_time
             and number > 0;
       SELECT ROW_COUNT() INTO insert_count;
       IF(insert_count = 0) THEN

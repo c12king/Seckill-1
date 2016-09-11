@@ -36,7 +36,7 @@ public class SeckillServiceTest {
     @Autowired
     private SeckillService seckillService;
 
-    private int threadNums = 2;
+    private int threadNums = 250;
 
     private CountDownLatch endLatch = new CountDownLatch(threadNums);
 
@@ -47,9 +47,9 @@ public class SeckillServiceTest {
     private AtomicLong successTimeCount = new AtomicLong(0);
     private AtomicLong failureTimeCount = new AtomicLong(0);
 
-    private long seckillId = 1003;
+    private long seckillId = 1001;
 
-    private long userPhone = 12211111111L;
+    private AtomicLong userPhone = new AtomicLong(22222223222L);
 
     private String md5;
 
@@ -76,13 +76,20 @@ public class SeckillServiceTest {
     @Test
     public void SeckillThread() throws InterruptedException {
 
+        Seckill seckill = seckillService.queryById(seckillId);
+
+        //缓存暴露秒杀url
+        String seckillKey = WebConstants.getSeckillRedisKey(seckillId);
+        seckillOper.getOperations().delete(seckillKey);
+        seckillOper.set(seckillKey, seckill);
+
+        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
+        //缓存库存量
+        seckillOper.getOperations().delete(stockKey);
+        seckillOper.increment(stockKey, seckill.getNumber());
+
         Exposer exposer = seckillService.exportSeckillUrl(seckillId);
         md5 = exposer.getMd5();
-
-        String stocks = WebConstants.getSeckillStockRedisKey(seckillId);
-        //先设置库存量
-        seckillOper.getOperations().delete(stocks);
-        seckillOper.increment(stocks,30);
 
         for (int i = 0; i < threadNums; i++) {
             new SeckillThread().start();
@@ -101,23 +108,23 @@ public class SeckillServiceTest {
     @Test
     public void parsePayInfoTest() throws InterruptedException {
 
-        //先存入一个值
+        Seckill seckill = seckillService.queryById(seckillId);
+
+        //缓存暴露秒杀url
         String seckillKey = WebConstants.getSeckillRedisKey(seckillId);
         seckillOper.getOperations().delete(seckillKey);
-        seckillOper.set(seckillKey, seckillService.queryById(seckillId));
+        seckillOper.set(seckillKey, seckill);
 
-//        Thread.sleep(10000);
+        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
+        //缓存库存量
+        seckillOper.getOperations().delete(stockKey);
+        seckillOper.increment(stockKey, seckill.getNumber());
 
         Exposer exposer = seckillService.exportSeckillUrl(seckillId);
         md5 = exposer.getMd5();
 
-        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
-        //先设置库存量
-        seckillOper.getOperations().delete(stockKey);
-        seckillOper.increment(stockKey, 30);
-
         for (int i = 0; i < threadNums; i++) {
-            new PayThread().start();
+            new PayThread(userPhone.incrementAndGet()).start();
         }
 
         endLatch.await();
@@ -134,12 +141,12 @@ public class SeckillServiceTest {
         System.out.println("excutTime + payTime:Count : " + format.format(successTotalCount.get()) + "ms");
         System.out.println("excutTime + payTime:Avg : " + format.format(successTotalCount.get() / threadNums) + "ms");
 
-        Thread.sleep(1000 * 10);
+        Thread.sleep(1000 * 60 * 60 * 2);
     }
 
     @Test
     public void executeSeckillProcTest() {
-        SuccessKilled successKilled = new SuccessKilled(seckillId, userPhone, (short)2);
+        SuccessKilled successKilled = new SuccessKilled(seckillId, userPhone.get(), (short) 2);
         seckillService.executeSeckillProc(successKilled);
     }
 
@@ -162,7 +169,7 @@ public class SeckillServiceTest {
         public void run() {
             long nanoTime = System.currentTimeMillis();
             try {
-                seckillService.executeSeckill(seckillId, userPhone, md5);
+                seckillService.executeSeckill(seckillId, userPhone.get(), md5);
                 nanoTime = System.currentTimeMillis() - nanoTime;
                 System.out.println("millisTime: " + nanoTime);
 
@@ -180,11 +187,17 @@ public class SeckillServiceTest {
     }
 
     class PayThread extends Thread {
+        private long userPhone;
+
+        public PayThread(long userPhone) {
+            this.userPhone = userPhone;
+        }
+
         @Override
         public void run() {
             long startTime = System.currentTimeMillis();
             try {
-                seckillService.executeSeckill(seckillId, userPhone, md5);
+                seckillService.executeSeckill(seckillId, this.userPhone, md5);
                 long excutTime = System.currentTimeMillis() - startTime;
                 System.out.println("excutTime: " + excutTime);
 
@@ -192,7 +205,7 @@ public class SeckillServiceTest {
                 successTimeCount.addAndGet(excutTime);
 
                 PayInfo payInfo = new PayInfo(seckillId, "TRADE_SUCCESS");
-                seckillService.parsePayInfo(payInfo, seckillId, userPhone);
+                seckillService.parsePayInfo(payInfo, seckillId, this.userPhone);
                 long totalTime = System.currentTimeMillis() - startTime;
                 System.out.println("excutTime + payTime: " + totalTime);
                 successTotalCount.addAndGet(totalTime);
