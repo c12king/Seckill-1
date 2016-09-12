@@ -49,8 +49,8 @@ public class SeckillServiceImpl implements SeckillService {
     @Resource(name = "redisTemplate")
     private ValueOperations<String, Seckill> seckillOper;
 
-    @Resource(name = "redisTemplate")
-    private ValueOperations<String, SuccessKilled> successKilledOper;
+//    @Resource(name = "redisTemplate")
+//    private ValueOperations<String, SuccessKilled> successKilledOper;
 
     @Value("${spring.rabbitmq.seckillExchange.name}")
     private String skExName;

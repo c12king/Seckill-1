@@ -40,9 +40,6 @@ SeckillServiceImpl.java
 
     @Resource(name = "redisTemplate")
     private ValueOperations<String, Seckill> seckillOper;
-
-    @Resource(name = "redisTemplate")
-    private ValueOperations<String, SuccessKilled> successKilledOper;
     
     @Value("${spring.rabbitmq.seckillExchange.name}")
     private String skExName;
@@ -80,19 +77,18 @@ SeckillServiceImpl.java
                 }
 
                 successKilled = new SuccessKilled(seckillId, userPhone, SeckillStatEnum.SUCCESS.getState());
+
+                //MQ发送消息
+                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
+
             }catch (JedisException je) {
                 LOG.error(je.getMessage(), je);
                 throw new SeckillException("系统异常");
-            }
-            
-            try {
-                //MQ发送消息
-                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
-            } catch (AmqpException ae) {
+            }catch (AmqpException ae) {
                 LOG.error(ae.getMessage(), ae);
-                //mq不可用，直接操作数据库
-                executeSeckillProc(successKilled);
-            } 
+                //TODO mq发送失败处理策略(异步处理)
+//                executeSeckillProc(successKilled);
+            }
             return new SeckillExcution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
         }
         throw new SeckillCloseException("pay error");
@@ -119,7 +115,7 @@ SeckillServiceImpl.java
         throw new SeckillException("系统异常code: " + result);
     }
 ```
-## 消息确认
+## 消息一致性处理
 
 
 ## Seckill的性能优化
