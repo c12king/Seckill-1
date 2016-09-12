@@ -81,4 +81,10 @@
         <appender-ref ref="INFO"/>
         <appender-ref ref="ERROR"/>
     </logger>
+
+    <logger name="com.seckill" level="INFO">
+        <appender-ref ref="INFO"/>
+        <appender-ref ref="ERROR"/>
+    </logger>
+
 </configuration>

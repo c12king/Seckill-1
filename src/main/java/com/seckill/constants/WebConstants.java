@@ -9,6 +9,7 @@ import org.springframework.util.DigestUtils;
 public class WebConstants {
 
     //redis 秒杀业务
+    private static final String APPLY_SUFFIX = "_apply_stocks";
     private static final String STOCK_SUFFIX = "_stocks";
     private static final String SECKILL_PREFIX = "seckill_";
     private static final String SUCCESS_SECKILL_PREFIX = "successkilled_";
@@ -17,8 +18,12 @@ public class WebConstants {
         return SECKILL_PREFIX + seckillId;
     }
 
+    public static String getApplyNumRedisKey(long seckillId) {
+        return APPLY_SUFFIX + APPLY_SUFFIX;
+    }
+
     public static final String getSeckillStockRedisKey(long seckillId) {
-        return seckillId + WebConstants.STOCK_SUFFIX;
+        return seckillId + STOCK_SUFFIX;
     }
 
     public static final String getSuccessSeckillRedisKey(long seckillId,long userPhone) {

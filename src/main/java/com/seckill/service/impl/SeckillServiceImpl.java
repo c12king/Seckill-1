@@ -22,11 +22,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
+import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Resource;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -60,7 +62,6 @@ public class SeckillServiceImpl implements SeckillService {
     }
 
 
-
     public Exposer exportSeckillUrl(long seckillId) {
         Seckill seckill = seckillOper.get(WebConstants.getSeckillRedisKey(seckillId));
 
@@ -91,16 +92,12 @@ public class SeckillServiceImpl implements SeckillService {
         if (md5 == null || !md5.equals(WebConstants.getMD5(seckillId))) {
             throw new SeckillException("seckill data rewrite");
         }
-        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
-        long result = seckillOper.increment(stockKey, -1);
+        String applyNumKey = WebConstants.getApplyNumRedisKey(seckillId);
+        long result = seckillOper.increment(applyNumKey, -1);
         if (result < 0) {
             //秒杀结束：无库存或秒杀结束等
             throw new SeckillCloseException("seckill is closed");
         } else {
-            SuccessKilled successKilled = new SuccessKilled(seckillId, userPhone, SeckillStatEnum.APPLY.getState());
-            String successKey = WebConstants.getSuccessSeckillRedisKey(seckillId, userPhone);
-            //缓存秒杀成功订单信息
-            successKilledOper.set(successKey, successKilled, 30, TimeUnit.MINUTES);
             return new SeckillExcution(seckillId, SeckillStatEnum.APPLY);
         }
     }
@@ -110,27 +107,36 @@ public class SeckillServiceImpl implements SeckillService {
      * @param payInfo
      * @param seckillId
      * @param userPhone
-     * @return TODO @Transcational与@RabbitListener配合使用 http://docs.spring.io/spring-amqp/docs/1.6.2.RELEASE/reference/html/_reference.html#collection-declaration
+     * @return
+     * TODO @Transcational与@RabbitListener配合使用 http://docs.spring.io/spring-amqp/docs/1.6.2.RELEASE/reference/html/_reference.html#collection-declaration
      */
     public SeckillExcution parsePayInfo(PayInfo payInfo, long seckillId, long userPhone) {
         //支付成功
         if ("TRADE_SUCCESS".equals(payInfo.getTradeStatus())) {
-            String key = WebConstants.getSuccessSeckillRedisKey(seckillId, userPhone);
-            SuccessKilled successKilled = successKilledOper.get(key);
-            successKilled.setState(SeckillStatEnum.SUCCESS.getState());
-            //更新订单支付状态
-            successKilledOper.set(key, successKilled);
-            //MQ发送消息
+            SuccessKilled successKilled = null;
+            Long decrResult = null;
             try {
-                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
-            } catch (AmqpIOException aioe) {
-                LOG.error(aioe.getMessage(),aioe);
-                // TODO 发送失败处理措施
-            } catch (AmqpException ae) {
-                LOG.error(ae.getMessage(), ae);
-                // TODO 发送失败处理措施
-            }
+                String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
+                decrResult = seckillOper.increment(stockKey, -1);
 
+                if (decrResult < 0){
+                    //秒杀结束：无库存或秒杀结束等
+                    throw new SeckillCloseException("seckill is closed");
+                }
+
+                successKilled = new SuccessKilled(seckillId, userPhone, SeckillStatEnum.SUCCESS.getState());
+
+                //MQ发送消息
+                rabbitTemplate.convertAndSend(skExName, skRoutKey, successKilled);
+
+            }catch (JedisException je) {
+                LOG.error(je.getMessage(), je);
+                throw new SeckillException("系统异常");
+            }catch (AmqpException ae) {
+                LOG.error(ae.getMessage(), ae);
+                //TODO mq发送失败处理策略(异步处理)
+//                executeSeckillProc(successKilled);
+            }
             return new SeckillExcution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
         }
         throw new SeckillCloseException("pay error");
@@ -154,9 +160,24 @@ public class SeckillServiceImpl implements SeckillService {
         if (result == 2) {
             return true;
         }
-        throw new SeckillException("执行存储过程异常code: " + result);
+        throw new SeckillException("系统异常code: " + result);
     }
 
-
+//    public static void main(String[] args) {
+//        System.out.println("result" + A.a());
+//    }
+//
+//    public static class A{
+//        public static int a() {
+//            try{
+//                int i = 1;
+//                i = i / 0;
+//            }catch (Exception e){
+//                throw new RuntimeException(e.getMessage(),e);
+//            }finally {
+//                return 1;
+//            }
+//        }
+//    }
 
 }

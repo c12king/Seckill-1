@@ -36,7 +36,7 @@ public class SeckillServiceTest {
     @Autowired
     private SeckillService seckillService;
 
-    private int threadNums = 250;
+    private int threadNums = 20;
 
     private CountDownLatch endLatch = new CountDownLatch(threadNums);
 
@@ -49,7 +49,7 @@ public class SeckillServiceTest {
 
     private long seckillId = 1001;
 
-    private AtomicLong userPhone = new AtomicLong(22222223222L);
+    private AtomicLong userPhone = new AtomicLong(23333333222L);
 
     private String md5;
 
@@ -74,7 +74,7 @@ public class SeckillServiceTest {
     }
 
     @Test
-    public void SeckillThread() throws InterruptedException {
+    public void SeckillTest() throws InterruptedException {
 
         Seckill seckill = seckillService.queryById(seckillId);
 
@@ -83,10 +83,10 @@ public class SeckillServiceTest {
         seckillOper.getOperations().delete(seckillKey);
         seckillOper.set(seckillKey, seckill);
 
-        String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
-        //缓存库存量
-        seckillOper.getOperations().delete(stockKey);
-        seckillOper.increment(stockKey, seckill.getNumber());
+        //缓存秒杀申请数量
+        String applyNumKey = WebConstants.getApplyNumRedisKey(seckillId);
+        seckillOper.getOperations().delete(applyNumKey);
+        seckillOper.increment(applyNumKey, seckill.getNumber());
 
         Exposer exposer = seckillService.exportSeckillUrl(seckillId);
         md5 = exposer.getMd5();
@@ -115,8 +115,13 @@ public class SeckillServiceTest {
         seckillOper.getOperations().delete(seckillKey);
         seckillOper.set(seckillKey, seckill);
 
+        //缓存秒杀申请数量
+        String applyNumKey = WebConstants.getApplyNumRedisKey(seckillId);
+        seckillOper.getOperations().delete(applyNumKey);
+        seckillOper.increment(applyNumKey, seckill.getNumber());
+
+        //缓存秒杀库存数量
         String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
-        //缓存库存量
         seckillOper.getOperations().delete(stockKey);
         seckillOper.increment(stockKey, seckill.getNumber());
 
