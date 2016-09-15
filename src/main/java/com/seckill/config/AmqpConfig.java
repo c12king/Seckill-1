@@ -17,6 +17,8 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
+import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -99,12 +101,12 @@ public class AmqpConfig {
     private Integer maxConcurrentConsumers;
     @Value("${spring.rabbitmq.seckillConsumer.concurrentConsumers}")
     private Integer concurrentConsumers;
-    @Value("${spring.rabbitmq.seckillConsumer.recoveryBackOff.initialInterval}")
-    private Long initialIntervalRecover;
-    @Value("${spring.rabbitmq.seckillConsumer.recoveryBackOff.multiplier}")
-    private Double multiplierRecover;
-    @Value("${spring.rabbitmq.seckillConsumer.recoveryBackOff.maxInterval}")
-    private Long maxIntervalRecover;
+//    @Value("${spring.rabbitmq.seckillConsumer.recoveryBackOff.initialInterval}")
+//    private Long initialIntervalRecover;
+//    @Value("${spring.rabbitmq.seckillConsumer.recoveryBackOff.multiplier}")
+//    private Double multiplierRecover;
+//    @Value("${spring.rabbitmq.seckillConsumer.recoveryBackOff.maxInterval}")
+//    private Long maxIntervalRecover;
 
 
     // TODO 没有消费者，发送一条消息耗时从60ms涨到200ms(可能是启动耗时,待验证)
@@ -112,29 +114,35 @@ public class AmqpConfig {
      * TODO 文档描述的：if the consumer is very badly behaved indeed will it give up，badly behaved是retry和recover失败后吗?
      * 不是：是抛出AmqpRejectAndDontRequeueException异常
      */
+//    @Bean
+//    SimpleMessageListenerContainer messageListenerContainer() {
+//        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
+//        container.setConnectionFactory(connectionFactory());
+//        container.addQueues(seckillQueue());
+//        container.setMaxConcurrentConsumers(maxConcurrentConsumers);
+//        container.setConcurrentConsumers(concurrentConsumers);
+//        container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+//        container.setMessageListener(listenerAdapter());
+//
+//        container.setDefaultRequeueRejected(false);
+//        return container;
+//    }
+
+    //SimpleMessageListenerContainer的consumer有效
     @Bean
-    SimpleMessageListenerContainer messageListenerContainer() {
-        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory());
-        container.addQueues(seckillQueue());
-        container.setMaxConcurrentConsumers(maxConcurrentConsumers);
-        container.setConcurrentConsumers(concurrentConsumers);
-        container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
-        container.setMessageListener(listenerAdapter());
-        container.setDefaultRequeueRejected(false);
-        ExponentialBackOff policy = new ExponentialBackOff();
-        policy.setInitialInterval(initialIntervalRecover);
-        policy.setMultiplier(multiplierRecover);
-        policy.setMaxInterval(maxIntervalRecover);
-        container.setRecoveryBackOff(policy);
-        return container;
+    RetryOperationsInterceptor retryInterceptor() {
+        return RetryInterceptorBuilder.stateless()
+//                .maxAttempts(maxAttempts)  //与backOffOption同时使用会失效
+                .backOffOptions(initialInterval, multiplier, maxInterval)        //重试间隔、下一次重试时间*2，最大重试时间
+//                .recoverer(new RejectAndDontRequeueRecoverer())
+                .build();
     }
 
     //作用与sender
     // TODO spring retry
 
-    @Value("${spring.rabbitmq.retry.maxAttempts}")
-    private Integer maxAttempts;
+//    @Value("${spring.rabbitmq.retry.maxAttempts}")
+//    private Integer maxAttempts;
     @Value("${spring.rabbitmq.retry.backOff.initialInterval}")
     private Long initialInterval;
     @Value("${spring.rabbitmq.retry.backOff.multiplier}")
@@ -142,14 +150,6 @@ public class AmqpConfig {
     @Value("${spring.rabbitmq.retry.backOff.initialInterval}")
     private Long maxInterval;
 
-    @Bean
-    RetryOperationsInterceptor retryInterceptor() {
-        return RetryInterceptorBuilder.stateless()
-                .maxAttempts(maxAttempts)
-                .backOffOptions(initialInterval, multiplier, maxInterval)        //重试间隔、下一次重试时间*2，最大重试时间
-//                .recoverer(new RepublishMessageRecoverer(rabbitTemplate, "bar", "baz"))
-                .build();
-    }
 
     //mq decreable
 

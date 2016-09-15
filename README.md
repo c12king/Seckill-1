@@ -115,8 +115,44 @@ SeckillServiceImpl.java
         throw new SeckillException("系统异常code: " + result);
     }
 ```
-## 消息一致性处理
 
+## 消息落地幂等性问题
+重复消费同一消息是会抛出业务异常。
+
+#####解决方法(TODO)
+在存储过程加上检查过程，发现已经执行过，返回执行成功信息。
+
+## 数据一致性问题
+
+### 秒杀过程
+redis的操作库存减1后，必须将账单消息发送给mq服务器。
+
+问题：秒杀成功后，web服务器崩溃或者mq服务器崩溃都将导致消息发送失败
+
+##### 解决方法
+
+将rabbitmq换成rocketmq。rocketmq发送消息分执行过程：
+
+- 发送prepared消息；
+- 执行业务逻辑
+- 业务逻辑的事务执行成功后，发送确认消息；
+
+RocketMQ会定期扫描消息集群中的事务消息，如果发现prepared消息，它会向消息发送者确认，根据制定的策略决定回滚还是继续发送确认消息。
+
+### 落地过程
+消费消息，update减库存，insert账单信息
+
+问题: 库存与账单不在同一数据库中如何处理？
+
+##### 解决方法
+采用强一致性的两阶段提交的方法，JavaEE的JTA事务。
+
+### Sagas长事务(TODO)
+在Sagas事务模型中，一个长事务由一个预先定义好执行顺序的事务集合和他们对应的补偿子事务集合组成。
+
+业务只需要进行交易编排，每个原子操作提供正反交易。
+
+Sagas长事务似乎能同时解决上述问题，但开发的复杂度较高。
 
 ## Seckill的性能优化
 ### 连接池(db、rabbitmq、redis)
@@ -127,5 +163,9 @@ SeckillServiceImpl.java
 
 ### protostuff(redis与rabbitmq都采用protostuff序列化对象)
 - protostuff基于Google protobuf，protobuf是所有序列化技术中速度最快的，而且占用空间小。(protostuff与protobuf性能差不多)
+
+## Seckill问题
+- 还没有解决数据的一致性问题
+- 订单管理、支付管理、仓库管理没有明确的需求，相应的也不了解是否要拆分成3个独立的应用系统，3个独立的数据库。
 
 

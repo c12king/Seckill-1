@@ -48,9 +48,9 @@ spring:
         mandatory: true
         replyTimeout: 5000
         retry:
-            maxAttempts: 3
+#            maxAttempts: 3
             backOff:
-                initialInterval: 100
+                initialInterval: 1000
                 multiplier: 2
                 maxInterval: 30000
 
@@ -72,10 +72,10 @@ spring:
         seckillConsumer:
             maxConcurrentConsumers: 10
             concurrentConsumers: 1
-            recoveryBackOff:
-                initialInterval: 2000
-                multiplier: 2.0
-                maxInterval: 30000
+#            recoveryBackOff:
+#                initialInterval: 2000
+#                multiplier: 2.0
+#                maxInterval: 30000
 
         deadExchange:
             name: dead_exchange_seckill

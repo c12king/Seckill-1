@@ -68,8 +68,20 @@
         </encoder>
     </appender>
 
+    <appender name="MQ" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/mq-%d{yyyy-MM}.log</fileNamePattern>
+        </rollingPolicy>
+        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <MaxFileSize>10MB</MaxFileSize>
+        </triggeringPolicy>
+        <encoder>
+            <Pattern>${LOG_PATTERN}</Pattern>
+        </encoder>
+    </appender>
 
     <logger name="org.apache.ibatis" level="DEBUG">
+        <appender-ref ref="INFO"/>
         <appender-ref ref="STDOUT"/>
     </logger>
 
@@ -80,6 +92,10 @@
     <logger name="org.springframework.web" level="INFO">
         <appender-ref ref="INFO"/>
         <appender-ref ref="ERROR"/>
+    </logger>
+
+    <logger name="org.springframework.amqp" level="WARN">
+        <appender-ref ref="MQ"/>
     </logger>
 
     <logger name="com.seckill" level="INFO">

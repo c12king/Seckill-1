@@ -36,7 +36,7 @@ public class SeckillServiceTest {
     @Autowired
     private SeckillService seckillService;
 
-    private int threadNums = 20;
+    private int threadNums = 1;
 
     private CountDownLatch endLatch = new CountDownLatch(threadNums);
 
@@ -49,7 +49,7 @@ public class SeckillServiceTest {
 
     private long seckillId = 1001;
 
-    private AtomicLong userPhone = new AtomicLong(23333333222L);
+    private AtomicLong userPhone = new AtomicLong(44444443223L);
 
     private String md5;
 

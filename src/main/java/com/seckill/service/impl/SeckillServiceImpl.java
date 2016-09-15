@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Resource;
@@ -93,11 +94,15 @@ public class SeckillServiceImpl implements SeckillService {
             throw new SeckillException("seckill data rewrite");
         }
         String applyNumKey = WebConstants.getApplyNumRedisKey(seckillId);
+        /*
+         * TODO 在redis服务端执行lua脚本：1:incr2:判断库存剩余量3：有库存缓存订单信息返回true，无库存返回false
+         */
         long result = seckillOper.increment(applyNumKey, -1);
         if (result < 0) {
             //秒杀结束：无库存或秒杀结束等
             throw new SeckillCloseException("seckill is closed");
         } else {
+
             return new SeckillExcution(seckillId, SeckillStatEnum.APPLY);
         }
     }
@@ -108,7 +113,7 @@ public class SeckillServiceImpl implements SeckillService {
      * @param seckillId
      * @param userPhone
      * @return
-     * TODO @Transcational与@RabbitListener配合使用 http://docs.spring.io/spring-amqp/docs/1.6.2.RELEASE/reference/html/_reference.html#collection-declaration
+     *
      */
     public SeckillExcution parsePayInfo(PayInfo payInfo, long seckillId, long userPhone) {
         //支付成功
@@ -117,6 +122,7 @@ public class SeckillServiceImpl implements SeckillService {
             Long decrResult = null;
             try {
                 String stockKey = WebConstants.getSeckillStockRedisKey(seckillId);
+
                 decrResult = seckillOper.increment(stockKey, -1);
 
                 if (decrResult < 0){
@@ -132,16 +138,19 @@ public class SeckillServiceImpl implements SeckillService {
             }catch (JedisException je) {
                 LOG.error(je.getMessage(), je);
                 throw new SeckillException("系统异常");
-            }catch (AmqpException ae) {
-                LOG.error(ae.getMessage(), ae);
-                //TODO mq发送失败处理策略(异步处理)
-//                executeSeckillProc(successKilled);
             }
+//            catch (AmqpException ae) {
+//                LOG.error(ae.getMessage(), ae);
+//                //TODO mq发送失败处理策略(异步处理)
+//                throw ae;
+////                executeSeckillProc(successKilled);
+//            }
             return new SeckillExcution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
         }
         throw new SeckillCloseException("pay error");
     }
 
+//    @Transactional
     public boolean executeSeckillProc(SuccessKilled successKilled) {
 
         Map<String, Object> paramMap = new HashMap<String, Object>();
